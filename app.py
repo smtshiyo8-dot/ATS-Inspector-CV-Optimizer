@@ -1,15 +1,16 @@
+from utils import detect_ats, score_cv, modify_cv
 from flask import Flask, render_template, request, jsonify
 import os
 
 # Initialize the Flask app
-app = Flask(__name__, static_folder='static', template_folder='templates')
+app = Flask(__name__)
 
 # Home / Health Check route
 @app.route("/")
 def home():
     return "Hello! ATS-Inspector is running. Ready to process CVs."
 
-# Example API route to process CVs (placeholder)
+# API route to process CVs
 @app.route("/process-cv", methods=["POST"])
 def process_cv():
     if 'file' not in request.files:
@@ -18,11 +19,16 @@ def process_cv():
     file = request.files['file']
     filename = file.filename
     
-    # Placeholder logic – replace with your CV processing code
+    # Call your functions from utils.py
+    ats_result = detect_ats(file)
+    score = score_cv(file)
+    modified_cv = modify_cv(file)
+    
     result = {
         "filename": filename,
-        "status": "Processed successfully",
-        "message": "This is a placeholder result. Add your ATS logic here."
+        "ats_detected": ats_result,
+        "cv_score": score,
+        "modified_cv": modified_cv
     }
     
     return jsonify(result), 200
@@ -34,6 +40,5 @@ def favicon():
 
 # Main entry point
 if __name__ == "__main__":
-    # Debug=False for production; use environment variable PORT for Render
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
