@@ -1,57 +1,124 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ATS Inspector & CV Optimizer</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 50px;
+        }
+        .container {
+            max-width: 900px;
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        #results-card {
+            margin-top: 20px;
+        }
+        #res-improvements li {
+            margin-bottom: 5px;
+        }
+        #keyword-highlights span {
+            background-color: #ffecb3;
+            border-radius: 3px;
+            padding: 2px 4px;
+            margin: 1px;
+            display: inline-block;
+        }
+        button:disabled {
+            cursor: not-allowed;
+        }
+    </style>
 </head>
 <body>
-    <h2>ATS Inspector & CV Optimizer</h2>
+
+<div class="container">
+    <h2 class="text-center mb-4">ATS Inspector & CV Optimizer</h2>
+
+    <!-- Upload Form -->
     <form id="cvForm" enctype="multipart/form-data">
-        <label>Upload your CV:</label><br>
-        <input type="file" name="file" required><br><br>
+        <div class="mb-3">
+            <label for="cvInput" class="form-label">Upload your CV:</label>
+            <input class="form-control" type="file" id="cvInput" name="file" accept=".pdf,.docx" required>
+        </div>
 
-        <label>Paste Job Description:</label><br>
-        <textarea name="job_description" rows="6" cols="60" placeholder="Paste job ad here..."></textarea><br><br>
+        <div class="mb-3">
+            <label for="jobDescription" class="form-label">Paste Job Description:</label>
+            <textarea class="form-control" id="jobDescription" name="job_description" rows="8" placeholder="Paste job ad here..." required></textarea>
+        </div>
 
-        <button type="submit">Analyze CV</button>
+        <div class="mb-3">
+            <label for="outputFormat" class="form-label">Choose Output Format:</label>
+            <select class="form-select" id="outputFormat" name="output_format" required>
+                <option value="pdf" selected>PDF</option>
+                <option value="docx">Word (.docx)</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100" id="analyzeBtn">Analyze CV</button>
     </form>
 
-    <div class="mb-3">
-        <label for="outputFormat" class="form-label">Choose Output Format</label>
-        <select class="form-select" id="outputFormat" name="output_format" required>
-        <option value="pdf" selected>PDF</option>
-        <option value="docx">Word (.docx)</option>
-        </select>
+    <!-- Progress Bar -->
+    <div class="progress mt-3" style="height: 25px; display:none;" id="progress-container">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" id="progress-bar">0%</div>
     </div>
 
+    <hr>
 
-    <h3>✅ CV Analysis Results</h3>
-    <pre id="results"></pre>
+    <!-- Results Section -->
+    <div id="results-card" class="card p-3" style="display:none;">
+        <h4 class="text-success">✅ CV Analysis Results</h4>
+        <p><strong>Filename:</strong> <span id="res-filename"></span></p>
+        <p><strong>ATS Detected:</strong> <span id="res-ats"></span></p>
+        <p><strong>CV Score:</strong> <span id="res-score"></span></p>
 
-    <script>
-        const form = document.getElementById("cvForm");
-        const resultsCard = document.getElementById("results-card");
+        <h5>Improvements:</h5>
+        <ul id="res-improvements"></ul>
 
-        form.addEventListener("submit", async (e) => {
-            e.preventDefault();
+        <h5>Missing Keywords Highlight:</h5>
+        <div id="keyword-highlights" class="mb-3"></div>
 
-            const formData = new FormData();
-            const fileInput = document.getElementById("cvInput");
-            const jobDescription = document.getElementById("jobDescription")?.value || "";
-            const outputFormat = document.getElementById("outputFormat").value;
+        <a id="res-download" href="#" class="btn btn-success mt-3" style="display:none;" target="_blank">⬇ Download Optimized CV</a>
+    </div>
+</div>
 
-            if (!fileInput.files.length) return;
+<!-- Bootstrap JS + Popper -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-            formData.append("file", fileInput.files[0]);
-            formData.append("job_description", jobDescription);
-            formData.append("output_format", outputFormat);
+<script>
+    const form = document.getElementById("cvForm");
+    const resultsCard = document.getElementById("results-card");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const progressContainer = document.getElementById("progress-container");
+    const progressBar = document.getElementById("progress-bar");
+    const keywordHighlights = document.getElementById("keyword-highlights");
 
-            try {
-                const res = await fetch("/process-cv", {
-                    method: "POST",
-                    body: formData
-                });
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        analyzeBtn.disabled = true;
+        analyzeBtn.textContent = "Analyzing...";
+        progressContainer.style.display = "block";
+        progressBar.style.width = "10%";
+        progressBar.textContent = "Starting...";
+
+        const formData = new FormData(form);
+
+        try {
+            const res = await fetch("/process-cv", {
+                method: "POST",
+                body: formData
+            });
 
             const data = await res.json();
+
+            progressBar.style.width = "70%";
+            progressBar.textContent = "Processing CV...";
 
             if (res.ok) {
                 // Populate results
@@ -59,7 +126,7 @@
                 document.getElementById("res-ats").textContent = data.ats_detected || "Unknown";
                 document.getElementById("res-score").textContent = data.cv_score || "N/A";
 
-                // Improvements list
+                // Improvements
                 const improvementsList = document.getElementById("res-improvements");
                 improvementsList.innerHTML = "";
                 if (data.improvements && data.improvements.length > 0) {
@@ -72,28 +139,46 @@
                     improvementsList.innerHTML = "<li>No suggestions provided.</li>";
                 }
 
-                // Download link with dynamic label
+                // Missing keyword highlights
+                keywordHighlights.innerHTML = "";
+                if (data.missing_keywords && data.missing_keywords.length > 0) {
+                    data.missing_keywords.forEach(word => {
+                        const span = document.createElement("span");
+                        span.textContent = word;
+                        keywordHighlights.appendChild(span);
+                    });
+                }
+
+                // Download button
                 const downloadBtn = document.getElementById("res-download");
                 if (data.modified_cv_url) {
                     downloadBtn.style.display = "inline-block";
                     downloadBtn.href = data.modified_cv_url;
-
-                    if (data.filename.endsWith(".docx")) {
-                        downloadBtn.textContent = "⬇ Download Optimized CV (Word)";
-                    } else {
-                        downloadBtn.textContent = "⬇ Download Optimized CV (PDF)";
-                    }
+                    downloadBtn.textContent = data.filename.endsWith(".docx") ?
+                        "⬇ Download Optimized CV (Word)" :
+                        "⬇ Download Optimized CV (PDF)";
                 } else {
                     downloadBtn.style.display = "none";
                 }
 
-                // Show results card
                 resultsCard.style.display = "block";
+                progressBar.style.width = "100%";
+                progressBar.textContent = "Done!";
             } else {
                 alert("❌ Error: " + (data.error || "Something went wrong."));
+                progressBar.style.width = "0%";
             }
+
         } catch (err) {
             alert("❌ Error uploading CV. Please try again.");
+            progressBar.style.width = "0%";
+        } finally {
+            analyzeBtn.disabled = false;
+            analyzeBtn.textContent = "Analyze CV";
+            setTimeout(() => {
+                progressContainer.style.display = "none";
+                progressBar.style.width = "0%";
+            }, 1500);
         }
     });
 </script>

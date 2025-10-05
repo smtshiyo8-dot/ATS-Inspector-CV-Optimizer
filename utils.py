@@ -8,23 +8,30 @@ from docx import Document
 # --- Extract text from CV ---
 def extract_text_from_cv(file):
     text = ""
-    if file.filename.endswith(".pdf"):
+    file.stream.seek(0)  # Ensure we start at the beginning
+    if file.filename.lower().endswith(".pdf"):
         pdf = PdfReader(file)
         for page in pdf.pages:
             if page.extract_text():
                 text += page.extract_text() + "\n"
+    elif file.filename.lower().endswith(".docx"):
+        doc = Document(file)
+        for para in doc.paragraphs:
+            text += para.text + "\n"
     else:
+        # fallback for text files
         text = file.read().decode(errors="ignore")
     return text.lower()
 
 # --- Detect ATS (placeholder logic) ---
 def detect_ats(file):
-    return "Greenhouse"
+    return "Greenhouse"  # Replace with real detection logic if needed
 
 # --- Score CV against job description ---
 def score_cv(file, job_description=""):
     cv_text = extract_text_from_cv(file)
 
+    # Extract keywords from job description (words with 5+ chars)
     if not job_description.strip():
         job_keywords = ["hr", "recruitment", "employee relations", "performance", "training", "compliance"]
     else:
@@ -43,6 +50,7 @@ def score_cv(file, job_description=""):
     if "summary" not in cv_text:
         improvements.append("Add a professional summary section at the top.")
 
+    # Return score, improvement suggestions, and missing keywords
     return score, improvements, missing
 
 # --- Create Optimized PDF ---
@@ -50,7 +58,7 @@ def modify_cv_pdf(file, missing_keywords):
     file.stream.seek(0)
     original_text = extract_text_from_cv(file)
 
-    optimized_text = original_text + "\n\n" + "=== Optimized for Job Description ===\n"
+    optimized_text = original_text + "\n\n=== Optimized for Job Description ===\n"
     if missing_keywords:
         optimized_text += "Keywords Added: " + ", ".join(missing_keywords)
     else:
