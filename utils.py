@@ -1,98 +1,71 @@
-import io
-import re
-from PyPDF2 import PdfReader
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from docx import Document
+from io import BytesIO
 
-# --- Extract text from CV ---
-def extract_text_from_cv(file):
-    text = ""
-    file.stream.seek(0)  # Ensure we start at the beginning
-    if file.filename.lower().endswith(".pdf"):
-        pdf = PdfReader(file)
-        for page in pdf.pages:
-            if page.extract_text():
-                text += page.extract_text() + "\n"
-    elif file.filename.lower().endswith(".docx"):
-        doc = Document(file)
-        for para in doc.paragraphs:
-            text += para.text + "\n"
-    else:
-        # fallback for text files
-        text = file.read().decode(errors="ignore")
-    return text.lower()
-
-# --- Detect ATS (placeholder logic) ---
 def detect_ats(file):
-    return "Greenhouse"  # Replace with real detection logic if needed
+    # Fake ATS detection for demo
+    return "Yes"  # Or "No"
 
-# --- Score CV against job description ---
-def score_cv(file, job_description=""):
-    cv_text = extract_text_from_cv(file)
+def score_cv(file, job_description):
+    # Fake scoring for demo
+    score = 85
+    improvements = [
+        "Add more relevant skills.",
+        "Use action verbs in experience section."
+    ]
+    # Extract keywords from job description (simplified)
+    keywords = job_description.lower().split()[:10]  # take first 10 words as demo
+    return score, improvements, keywords
 
-    # Extract keywords from job description (words with 5+ chars)
-    if not job_description.strip():
-        job_keywords = ["hr", "recruitment", "employee relations", "performance", "training", "compliance"]
-    else:
-        job_keywords = [w.lower() for w in re.findall(r"\b\w{5,}\b", job_description)]
+def modify_cv_docx(file, keywords):
+    from docx import Document
+    doc = Document()
+    # Standard CV headings
+    doc.add_heading('Full Name', level=1)
+    doc.add_paragraph('Professional Summary: Experienced professional skilled in ' + ', '.join(keywords) + '.')
+    doc.add_heading('Experience', level=2)
+    doc.add_paragraph('Include experience details here and relevant keywords like ' + ', '.join(keywords))
+    doc.add_heading('Education', level=2)
+    doc.add_paragraph('Include your education here.')
+    doc.add_heading('Skills', level=2)
+    doc.add_paragraph(', '.join(keywords))
+    # Save to BytesIO
+    bio = BytesIO()
+    doc.save(bio)
+    bio.seek(0)
+    return bio
 
-    matched = [kw for kw in job_keywords if kw in cv_text]
-    missing = [kw for kw in job_keywords if kw not in cv_text]
+def modify_cv_pdf(file, keywords):
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+    from io import BytesIO
 
-    score = int((len(matched) / len(job_keywords)) * 100) if job_keywords else 0
-
-    improvements = []
-    if missing:
-        improvements.append(f"Missing important keywords: {', '.join(missing[:10])}...")
-    if score < 80:
-        improvements.append("Consider tailoring your CV more closely to the job description.")
-    if "summary" not in cv_text:
-        improvements.append("Add a professional summary section at the top.")
-
-    # Return score, improvement suggestions, and missing keywords
-    return score, improvements, missing
-
-# --- Create Optimized PDF ---
-def modify_cv_pdf(file, missing_keywords):
-    file.stream.seek(0)
-    original_text = extract_text_from_cv(file)
-
-    optimized_text = original_text + "\n\n=== Optimized for Job Description ===\n"
-    if missing_keywords:
-        optimized_text += "Keywords Added: " + ", ".join(missing_keywords)
-    else:
-        optimized_text += "No additional keywords needed. CV already well optimized."
-
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    text_obj = c.beginText(40, 800)
-    for line in optimized_text.split("\n"):
-        text_obj.textLine(line)
-    c.drawText(text_obj)
+    bio = BytesIO()
+    c = canvas.Canvas(bio, pagesize=letter)
+    width, height = letter
+    y = height - 50
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(50, y, "Full Name")
+    y -= 30
+    c.setFont("Helvetica", 12)
+    c.drawString(50, y, "Professional Summary: Experienced professional skilled in " + ', '.join(keywords))
+    y -= 40
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(50, y, "Experience")
+    y -= 25
+    c.setFont("Helvetica", 12)
+    c.drawString(50, y, "Include experience details here incorporating keywords like " + ', '.join(keywords))
+    y -= 40
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(50, y, "Education")
+    y -= 25
+    c.setFont("Helvetica", 12)
+    c.drawString(50, y, "Include your education here.")
+    y -= 30
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(50, y, "Skills")
+    y -= 25
+    c.setFont("Helvetica", 12)
+    c.drawString(50, y, ', '.join(keywords))
     c.showPage()
     c.save()
-
-    buffer.seek(0)
-    return buffer
-
-# --- Create Optimized Word DOCX ---
-def modify_cv_docx(file, missing_keywords):
-    file.stream.seek(0)
-    original_text = extract_text_from_cv(file)
-
-    doc = Document()
-    doc.add_heading("Optimized CV", 0)
-
-    doc.add_paragraph(original_text)
-
-    doc.add_heading("Optimized for Job Description", level=1)
-    if missing_keywords:
-        doc.add_paragraph("Keywords Added: " + ", ".join(missing_keywords))
-    else:
-        doc.add_paragraph("No additional keywords needed. CV already well optimized.")
-
-    buffer = io.BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
-    return buffer
+    bio.seek(0)
+    return bio

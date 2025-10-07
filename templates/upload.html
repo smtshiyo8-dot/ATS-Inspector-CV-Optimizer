@@ -8,15 +8,16 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            background-color: #f8f9fa;
+            background-color: #D4AF37; /* classic-gold (hex) background */
             padding-top: 50px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         .container {
             max-width: 900px;
-            background: #fff;
+            background: #fffaf0; /* slightly different shade for card */
             padding: 30px;
             border-radius: 12px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            box-shadow: 0 0 20px rgba(0,0,0,0.15);
         }
         #results-card {
             margin-top: 20px;
@@ -39,7 +40,7 @@
 <body>
 
 <div class="container">
-    <h2 class="text-center mb-4">ATS Inspector & CV Optimizer</h2>
+    <h2 class="text-center mb-4 text-dark">ATS Inspector & CV Optimizer</h2>
 
     <!-- Upload Form -->
     <form id="cvForm" enctype="multipart/form-data">
@@ -61,7 +62,7 @@
             </select>
         </div>
 
-        <button type="submit" class="btn btn-primary w-100" id="analyzeBtn">Analyze CV</button>
+        <button type="submit" class="btn btn-warning w-100" id="analyzeBtn">Analyze CV</button>
     </form>
 
     <!-- Progress Bar -->
@@ -81,9 +82,6 @@
         <h5>Improvements:</h5>
         <ul id="res-improvements"></ul>
 
-        <h5>Missing Keywords Highlight:</h5>
-        <div id="keyword-highlights" class="mb-3"></div>
-
         <a id="res-download" href="#" class="btn btn-success mt-3" style="display:none;" target="_blank">⬇ Download Optimized CV</a>
     </div>
 </div>
@@ -92,96 +90,83 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-    const form = document.getElementById("cvForm");
-    const resultsCard = document.getElementById("results-card");
-    const analyzeBtn = document.getElementById("analyzeBtn");
-    const progressContainer = document.getElementById("progress-container");
-    const progressBar = document.getElementById("progress-bar");
-    const keywordHighlights = document.getElementById("keyword-highlights");
+const form = document.getElementById("cvForm");
+const resultsCard = document.getElementById("results-card");
+const analyzeBtn = document.getElementById("analyzeBtn");
+const progressContainer = document.getElementById("progress-container");
+const progressBar = document.getElementById("progress-bar");
 
-    form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        analyzeBtn.disabled = true;
-        analyzeBtn.textContent = "Analyzing...";
-        progressContainer.style.display = "block";
-        progressBar.style.width = "10%";
-        progressBar.textContent = "Starting...";
+form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    analyzeBtn.disabled = true;
+    analyzeBtn.textContent = "Analyzing...";
+    progressContainer.style.display = "block";
+    progressBar.style.width = "10%";
+    progressBar.textContent = "Starting...";
 
-        const formData = new FormData(form);
+    const formData = new FormData(form);
 
-        try {
-            const res = await fetch("/process-cv", {
-                method: "POST",
-                body: formData
-            });
+    try {
+        const res = await fetch("/process-cv", {
+            method: "POST",
+            body: formData
+        });
 
-            const data = await res.json();
+        const data = await res.json();
+        progressBar.style.width = "70%";
+        progressBar.textContent = "Processing CV...";
 
-            progressBar.style.width = "70%";
-            progressBar.textContent = "Processing CV...";
+        if (res.ok) {
+            // Populate results
+            document.getElementById("res-filename").textContent = data.filename || "Unknown";
+            document.getElementById("res-ats").textContent = data.ats_detected || "Unknown";
+            document.getElementById("res-score").textContent = data.cv_score || "N/A";
 
-            if (res.ok) {
-                // Populate results
-                document.getElementById("res-filename").textContent = data.filename || "Unknown";
-                document.getElementById("res-ats").textContent = data.ats_detected || "Unknown";
-                document.getElementById("res-score").textContent = data.cv_score || "N/A";
-
-                // Improvements
-                const improvementsList = document.getElementById("res-improvements");
-                improvementsList.innerHTML = "";
-                if (data.improvements && data.improvements.length > 0) {
-                    data.improvements.forEach(item => {
-                        const li = document.createElement("li");
-                        li.textContent = item;
-                        improvementsList.appendChild(li);
-                    });
-                } else {
-                    improvementsList.innerHTML = "<li>No suggestions provided.</li>";
-                }
-
-                // Missing keyword highlights
-                keywordHighlights.innerHTML = "";
-                if (data.missing_keywords && data.missing_keywords.length > 0) {
-                    data.missing_keywords.forEach(word => {
-                        const span = document.createElement("span");
-                        span.textContent = word;
-                        keywordHighlights.appendChild(span);
-                    });
-                }
-
-                // Download button
-                const downloadBtn = document.getElementById("res-download");
-                if (data.modified_cv_url) {
-                    downloadBtn.style.display = "inline-block";
-                    downloadBtn.href = data.modified_cv_url;
-                    downloadBtn.textContent = data.filename.endsWith(".docx") ?
-                        "⬇ Download Optimized CV (Word)" :
-                        "⬇ Download Optimized CV (PDF)";
-                } else {
-                    downloadBtn.style.display = "none";
-                }
-
-                resultsCard.style.display = "block";
-                progressBar.style.width = "100%";
-                progressBar.textContent = "Done!";
+            // Improvements
+            const improvementsList = document.getElementById("res-improvements");
+            improvementsList.innerHTML = "";
+            if (data.improvements && data.improvements.length > 0) {
+                data.improvements.forEach(item => {
+                    const li = document.createElement("li");
+                    li.textContent = item;
+                    improvementsList.appendChild(li);
+                });
             } else {
-                alert("❌ Error: " + (data.error || "Something went wrong."));
-                progressBar.style.width = "0%";
+                improvementsList.innerHTML = "<li>No suggestions provided.</li>";
             }
 
-        } catch (err) {
-            alert("❌ Error uploading CV. Please try again.");
-            progressBar.style.width = "0%";
-        } finally {
-            analyzeBtn.disabled = false;
-            analyzeBtn.textContent = "Analyze CV";
-            setTimeout(() => {
-                progressContainer.style.display = "none";
-                progressBar.style.width = "0%";
-            }, 1500);
-        }
-    });
-</script>
+            // Download button
+            const downloadBtn = document.getElementById("res-download");
+            if (data.modified_cv_url) {
+                downloadBtn.style.display = "inline-block";
+                downloadBtn.href = data.modified_cv_url;
+                downloadBtn.textContent = data.filename.endsWith(".docx") ?
+                    "⬇ Download Optimized CV (Word)" :
+                    "⬇ Download Optimized CV (PDF)";
+            } else {
+                downloadBtn.style.display = "none";
+            }
 
+            resultsCard.style.display = "block";
+            progressBar.style.width = "100%";
+            progressBar.textContent = "Done!";
+        } else {
+            alert("❌ Error: " + (data.error || "Something went wrong."));
+            progressBar.style.width = "0%";
+        }
+
+    } catch (err) {
+        alert("❌ Error uploading CV. Please try again.");
+        progressBar.style.width = "0%";
+    } finally {
+        analyzeBtn.disabled = false;
+        analyzeBtn.textContent = "Analyze CV";
+        setTimeout(() => {
+            progressContainer.style.display = "none";
+            progressBar.style.width = "0%";
+        }, 1500);
+    }
+});
+</script>
 </body>
 </html>
